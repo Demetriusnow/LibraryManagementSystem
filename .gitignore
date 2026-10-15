@@ -1,0 +1,29 @@
+## Build and binary directories
+bin/
+obj/
+out/
+
+## Visual Studio cache and settings
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+*.dbmdl
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+
+## Test results
+TestResults/
+[Tt]est[Rr]esult*
+*.trx
+
+## OS generated files
+.DS_Store
+Thumbs.db
+
+## Docker and container temp
+.docker/
