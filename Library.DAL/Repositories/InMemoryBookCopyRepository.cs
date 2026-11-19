@@ -28,6 +28,18 @@ public class InMemoryBookCopyRepository : IBookCopyRepository
         });
     }
 
+    public Task<IReadOnlyCollection<BookCopy>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        IReadOnlyCollection<BookCopy> copies = _bookCopies.Values
+            .OrderBy(copy => copy.Id)
+            .ToArray();
+
+        return Task.FromResult(copies);
+    }
+
     public Task<BookCopy?> GetByIdAsync(
         int bookCopyId,
         CancellationToken cancellationToken = default)

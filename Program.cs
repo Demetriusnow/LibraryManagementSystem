@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Library.BLL.Services;
 using Library.Core.Interfaces;
 using Library.DAL.Repositories;
@@ -6,14 +7,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<IBookCopyRepository, InMemoryBookCopyRepository>();
 builder.Services.AddSingleton<ILoanRepository, InMemoryLoanRepository>();
+builder.Services.AddSingleton<IBookRepository, InMemoryBookRepository>();
 builder.Services.AddScoped<ILoanService, LoanService>();
+builder.Services.AddScoped<IBookService, BookService>();
 
 var app = builder.Build();
 

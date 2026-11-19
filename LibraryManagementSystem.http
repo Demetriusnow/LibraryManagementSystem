@@ -1,6 +1,46 @@
 @LibraryManagementSystem_HostAddress = http://localhost:5107
 
-GET {{LibraryManagementSystem_HostAddress}}/weatherforecast/
+GET {{LibraryManagementSystem_HostAddress}}/api/books
 Accept: application/json
+
+###
+
+GET {{LibraryManagementSystem_HostAddress}}/api/books/copies
+Accept: application/json
+
+###
+
+POST {{LibraryManagementSystem_HostAddress}}/api/loans/issue
+Content-Type: application/json
+
+{
+  "bookCopyId": 1,
+  "readerId": 1
+}
+
+###
+
+GET {{LibraryManagementSystem_HostAddress}}/api/loans/reader/1
+Accept: application/json
+
+###
+
+POST {{LibraryManagementSystem_HostAddress}}/api/loans/return
+Content-Type: application/json
+
+{
+  "loanId": 1
+}
+
+###
+
+POST {{LibraryManagementSystem_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "title": "Refactoring",
+  "isbn": "978-0134757599",
+  "authorName": "Martin Fowler"
+}
 
 ###

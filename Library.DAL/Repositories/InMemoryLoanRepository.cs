@@ -7,7 +7,22 @@ namespace Library.DAL.Repositories;
 public class InMemoryLoanRepository : ILoanRepository
 {
     private readonly ConcurrentDictionary<int, Loan> _loans = new();
-    private int _nextLoanId;
+    private int _nextLoanId = 1;
+
+    public InMemoryLoanRepository()
+    {
+        var borrowDate = DateTime.UtcNow.AddDays(-2);
+
+        // Seed an active loan matching the initial borrowed book copy (Id = 2).
+        _loans.TryAdd(1, new Loan
+        {
+            Id = 1,
+            BookCopyId = 2,
+            ReaderId = 1,
+            BorrowDate = borrowDate,
+            DueDate = borrowDate.AddDays(14)
+        });
+    }
 
     public Task AddAsync(
         Loan loan,
