@@ -10,11 +10,11 @@
 
 ```text
 LibraryManagementSystem/
-├── Library.Core/               # Доменні моделі (BookCopy, Loan) та інтерфейси репозиторіїв
-├── Library.BLL/                # Бізнес-логіка (LoanService, валідація, правила видачі книг)
+├── Library.Core/               # Доменні моделі, DTO, переліки статусів та інтерфейси
+├── Library.BLL/                # Бізнес-логіка (LoanService, BookService, AuthorService, ReservationService)
 ├── Library.DAL/                # Рівень доступу до даних (демонстраційні репозиторії в пам'яті)
 ├── Library.Tests/              # Модульні тести (xUnit, Moq, FluentAssertions)
-├── Controllers/                # REST API контролери (LoansController)
+├── Controllers/                # REST API контролери (LoansController, BooksController, AuthorsController, ReservationsController)
 ├── Program.cs                  # Налаштування DI-контейнера, Swagger та пайплайну
 └── README.md                   # Документація проєкту
 ```
@@ -30,14 +30,29 @@ LibraryManagementSystem/
 
 ---
 
-## 📋 Реалізований функціонал (Epic 1 / ЛР №2)
+## 📋 Реалізований функціонал (Epic 1 / ЛР №2 — усі 4 User Stories)
 
-- **Видача примірника книги читачеві (`POST /api/loans/issue`)**:
-  - Перевірка доступності примірника книги (`IsAvailable == true`)
-  - Створення нового запису позики (`Loan`) із фіксацією дати видачі (`IssueDate`) та планової дати повернення (`DueDate`)
-  - Оновлення статусу примірника на недоступний (`IsAvailable = false`)
-  - Захист від повторної видачі зайнятої книги (повернення `400 Bad Request: "Book copy is not available"`)
-  - Повне покриття юніт-тестами (5/5 тестів проходять успішно)
+- **1. Видача та повернення примірників книг (`LoansController` / `LoanService`)**:
+  - `POST /api/loans/issue` — видача доступного примірника зі зміною статусу на `Borrowed` і терміном повернення +14 днів (`400 Bad Request: "Book copy is not available."` для зайнятих)
+  - `POST /api/loans/return` — повернення книги з фіксацією `ReturnDate` та відновленням статусу примірника (`Available` або `Reserved`)
+  - `GET /api/loans/reader/{readerId}` — активні позики конкретного читача
+
+- **2. Додавання книг, авторів та облік примірників (`BooksController`, `AuthorsController`)**:
+  - CRUD для `Book` (`GET`, `POST`, `PUT`, `DELETE /api/books`), `Author` (`/api/authors`) та `BookCopy` (`/api/books/{id}/copies`, `/api/books/copies`)
+  - Валідація унікальності `ISBN` та інвентарного номера формату `INV-xxx`
+  - Заборона створення/оновлення книги з роком видання в майбутньому
+  - Прив'язка кількох фізичних примірників (`BookCopy`) до одного запису книги
+
+- **3. Пошук та фільтрація каталогу (`BookService`)**:
+  - `GET /api/books?query=...&category=...&page=1&pageSize=10` — case-insensitive пошук за назвою, автором і ISBN з фільтрацією за категорією та пагінацією
+  - Відображення кількості доступних фізичних примірників (`AvailableCopiesCount`) у результатах пошуку
+  - Повернення порожнього списку (`200 OK`) без збоїв, якщо нічого не знайдено
+
+- **4. Резервування літератури та контроль прострочених повернень (`ReservationsController`, `LoanService`)**:
+  - `GET /api/loans/overdue` — автоматичне маркування прострочених позик статусом `Overdue`, якщо поточна дата перевищує `DueDate`
+  - `GET /api/loans/overdue-readers` — формування списку читачів із простроченими книгами
+  - `POST /api/reservations`, `GET /api/reservations/book-copy/{bookCopyId}`, `DELETE /api/reservations/{id}` — керування чергою резерву на зайняті примірники
+  - Автоматичне сповіщення першого читача в черзі та бронювання примірника на 48 годин (`Reserved`) після повернення книги (`GET /api/reservations/notifications`)
 
 ---
 

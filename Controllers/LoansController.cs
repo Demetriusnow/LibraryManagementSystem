@@ -5,7 +5,7 @@ namespace LibraryManagementSystem.Controllers;
 
 [ApiController]
 [Route("api/loans")]
-public class LoansController : ControllerBase
+public class LoansController : ApiControllerBase
 {
     private readonly ILoanService _loanService;
 
@@ -15,18 +15,41 @@ public class LoansController : ControllerBase
     }
 
     [HttpPost("issue")]
-    public async Task<IActionResult> IssueLoan([FromBody] IssueLoanRequest request)
+    public Task<IActionResult> IssueLoan([FromBody] IssueLoanRequest request)
     {
-        try
-        {
-            await _loanService.IssueLoanAsync(request.BookCopyId, request.ReaderId);
-            return Ok();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
+        return ExecuteActionAsync(() =>
+            _loanService.IssueLoanAsync(request.BookCopyId, request.ReaderId));
+    }
+
+    [HttpPost("return")]
+    public Task<IActionResult> ReturnLoan([FromBody] ReturnLoanRequest request)
+    {
+        return ExecuteActionAsync(() =>
+            _loanService.ReturnLoanAsync(request.LoanId));
+    }
+
+    [HttpGet("reader/{readerId:int}")]
+    public async Task<IActionResult> GetActiveLoansByReader(int readerId)
+    {
+        var loans = await _loanService.GetActiveLoansByReaderAsync(readerId);
+        return Ok(loans);
+    }
+
+    [HttpGet("overdue")]
+    public async Task<IActionResult> GetOverdueLoans()
+    {
+        var overdueLoans = await _loanService.GetOverdueLoansAsync();
+        return Ok(overdueLoans);
+    }
+
+    [HttpGet("overdue-readers")]
+    public async Task<IActionResult> GetOverdueReaders()
+    {
+        var overdueReaders = await _loanService.GetOverdueReadersAsync();
+        return Ok(overdueReaders);
     }
 }
 
 public sealed record IssueLoanRequest(int BookCopyId, int ReaderId);
+
+public sealed record ReturnLoanRequest(int LoanId);
