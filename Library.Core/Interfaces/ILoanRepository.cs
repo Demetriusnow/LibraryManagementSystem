@@ -4,6 +4,9 @@ namespace Library.Core.Interfaces;
 
 public interface ILoanRepository
 {
+    Task<IReadOnlyCollection<Loan>> GetAllAsync(
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(
         Loan loan,
         CancellationToken cancellationToken = default);

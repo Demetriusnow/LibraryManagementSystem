@@ -291,4 +291,350 @@ public class LoanServiceTests
         // Assert
         actualLoans.Should().BeEquivalentTo(expectedLoans);
     }
+
+    [Fact]
+    public async Task GetOverdueLoansAsync_WhenActiveLoanIsPastDueDate_ShouldMarkAsOverdueAndReturnIt()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var overdueLoan = new Loan
+        {
+            Id = 1,
+            BookCopyId = 2,
+            ReaderId = 1,
+            BorrowDate = now.AddDays(-16),
+            DueDate = now.AddDays(-2),
+            ReturnDate = null,
+            Status = LoanStatus.Active
+        };
+
+        var currentLoan = new Loan
+        {
+            Id = 2,
+            BookCopyId = 3,
+            ReaderId = 2,
+            BorrowDate = now.AddDays(-2),
+            DueDate = now.AddDays(12),
+            ReturnDate = null,
+            Status = LoanStatus.Active
+        };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        var loanRepository = new Mock<ILoanRepository>();
+        loanRepository
+            .Setup(repository => repository.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { overdueLoan, currentLoan });
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        var result = await service.GetOverdueLoansAsync();
+
+        // Assert
+        result.Should().ContainSingle(loan => loan.Id == 1);
+        overdueLoan.Status.Should().Be(LoanStatus.Overdue);
+        currentLoan.Status.Should().Be(LoanStatus.Active);
+
+        loanRepository.Verify(
+            repository => repository.UpdateAsync(
+                It.Is<Loan>(loan => loan.Id == 1 && loan.Status == LoanStatus.Overdue),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetOverdueReadersAsync_ShouldGroupOverdueLoansByReader()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var overdueLoan = new Loan
+        {
+            Id = 1,
+            BookCopyId = 2,
+            ReaderId = 1,
+            BorrowDate = now.AddDays(-16),
+            DueDate = now.AddDays(-2),
+            Status = LoanStatus.Active
+        };
+
+        var reader = new Reader { Id = 1, FullName = "Ivan Petrenko", Email = "ivan@example.com" };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        var loanRepository = new Mock<ILoanRepository>();
+        loanRepository
+            .Setup(repository => repository.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { overdueLoan });
+
+        var readerRepository = new Mock<IReaderRepository>();
+        readerRepository
+            .Setup(repository => repository.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(reader);
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            readerRepository: readerRepository.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        var overdueReaders = await service.GetOverdueReadersAsync();
+
+        // Assert
+        var dto = overdueReaders.Should().ContainSingle().Subject;
+        dto.ReaderId.Should().Be(1);
+        dto.FullName.Should().Be("Ivan Petrenko");
+        dto.OverdueLoans.Should().ContainSingle(loan => loan.Id == 1);
+    }
+
+    [Fact]
+    public async Task ReturnLoanAsync_WhenWaitingReservationExists_ShouldReserveCopyFor48HoursAndNotifyFirstReader()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var loan = new Loan
+        {
+            Id = 1,
+            BookCopyId = 2,
+            ReaderId = 1,
+            BorrowDate = now.AddDays(-5),
+            DueDate = now.AddDays(9)
+        };
+
+        var bookCopy = new BookCopy
+        {
+            Id = 2,
+            BookId = 2,
+            InventoryNumber = "INV-002",
+            Status = BookCopyStatus.Borrowed
+        };
+
+        var firstReservation = new Reservation
+        {
+            Id = 10,
+            BookCopyId = 2,
+            ReaderId = 2,
+            CreatedAt = now.AddHours(-3),
+            Status = ReservationStatus.Waiting
+        };
+
+        var secondReservation = new Reservation
+        {
+            Id = 11,
+            BookCopyId = 2,
+            ReaderId = 3,
+            CreatedAt = now.AddHours(-1),
+            Status = ReservationStatus.Waiting
+        };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        bookCopyRepository
+            .Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bookCopy);
+
+        var loanRepository = new Mock<ILoanRepository>();
+        loanRepository
+            .Setup(repository => repository.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loan);
+
+        var reservationRepository = new Mock<IReservationRepository>();
+        reservationRepository
+            .Setup(repository => repository.GetByBookCopyIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { secondReservation, firstReservation });
+
+        var notificationService = new Mock<INotificationService>();
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            reservationRepository: reservationRepository.Object,
+            notificationService: notificationService.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        await service.ReturnLoanAsync(1);
+
+        // Assert
+        loan.Status.Should().Be(LoanStatus.Returned);
+        bookCopy.Status.Should().Be(BookCopyStatus.Reserved);
+        firstReservation.Status.Should().Be(ReservationStatus.ReadyForPickup);
+        firstReservation.ReservedUntil.Should().Be(now.AddHours(48));
+        firstReservation.NotificationSent.Should().BeTrue();
+        secondReservation.Status.Should().Be(ReservationStatus.Waiting);
+
+        notificationService.Verify(
+            notifier => notifier.NotifyAsync(
+                2,
+                2,
+                It.Is<string>(msg => msg.Contains("48")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task IssueLoanAsync_WhenCopyIsReservedForAnotherReaderWithin48Hours_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var bookCopy = new BookCopy
+        {
+            Id = 2,
+            BookId = 2,
+            InventoryNumber = "INV-002",
+            Status = BookCopyStatus.Reserved
+        };
+
+        var activeHold = new Reservation
+        {
+            Id = 10,
+            BookCopyId = 2,
+            ReaderId = 2,
+            Status = ReservationStatus.ReadyForPickup,
+            ReservedUntil = now.AddHours(24)
+        };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        bookCopyRepository
+            .Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bookCopy);
+
+        var loanRepository = new Mock<ILoanRepository>();
+        var reservationRepository = new Mock<IReservationRepository>();
+        reservationRepository
+            .Setup(repository => repository.GetByBookCopyIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { activeHold });
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            reservationRepository: reservationRepository.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        Func<Task> act = () => service.IssueLoanAsync(2, readerId: 99);
+
+        // Assert
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not available*");
+    }
+
+    [Fact]
+    public async Task IssueLoanAsync_WhenCopyIsReservedForSameReaderWithin48Hours_ShouldFulfillReservationAndIssueLoan()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var bookCopy = new BookCopy
+        {
+            Id = 2,
+            BookId = 2,
+            InventoryNumber = "INV-002",
+            Status = BookCopyStatus.Reserved
+        };
+
+        var activeHold = new Reservation
+        {
+            Id = 10,
+            BookCopyId = 2,
+            ReaderId = 2,
+            Status = ReservationStatus.ReadyForPickup,
+            ReservedUntil = now.AddHours(24)
+        };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        bookCopyRepository
+            .Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bookCopy);
+
+        var loanRepository = new Mock<ILoanRepository>();
+        var reservationRepository = new Mock<IReservationRepository>();
+        reservationRepository
+            .Setup(repository => repository.GetByBookCopyIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { activeHold });
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            reservationRepository: reservationRepository.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        await service.IssueLoanAsync(2, readerId: 2);
+
+        // Assert
+        bookCopy.Status.Should().Be(BookCopyStatus.Borrowed);
+        activeHold.Status.Should().Be(ReservationStatus.Fulfilled);
+        loanRepository.Verify(
+            repository => repository.AddAsync(It.IsAny<Loan>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task IssueLoanAsync_When48HourReservationHoldExpiredAndQueueIsEmpty_ShouldExpireHoldAndIssueLoan()
+    {
+        // Arrange
+        var now = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        var timeProvider = new FixedTimeProvider(now);
+
+        var bookCopy = new BookCopy
+        {
+            Id = 2,
+            BookId = 2,
+            InventoryNumber = "INV-002",
+            Status = BookCopyStatus.Reserved
+        };
+
+        var expiredHold = new Reservation
+        {
+            Id = 10,
+            BookCopyId = 2,
+            ReaderId = 2,
+            Status = ReservationStatus.ReadyForPickup,
+            ReservedUntil = now.AddHours(-1)
+        };
+
+        var bookCopyRepository = new Mock<IBookCopyRepository>();
+        bookCopyRepository
+            .Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bookCopy);
+
+        var loanRepository = new Mock<ILoanRepository>();
+        var reservationRepository = new Mock<IReservationRepository>();
+        reservationRepository
+            .Setup(repository => repository.GetByBookCopyIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { expiredHold });
+
+        var service = new LoanService(
+            bookCopyRepository.Object,
+            loanRepository.Object,
+            reservationRepository: reservationRepository.Object,
+            timeProvider: timeProvider);
+
+        // Act
+        await service.IssueLoanAsync(2, readerId: 99);
+
+        // Assert
+        expiredHold.Status.Should().Be(ReservationStatus.Expired);
+        bookCopy.Status.Should().Be(BookCopyStatus.Borrowed);
+        loanRepository.Verify(
+            repository => repository.AddAsync(It.IsAny<Loan>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private sealed class FixedTimeProvider(DateTime utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(utcNow, TimeSpan.Zero);
+    }
 }

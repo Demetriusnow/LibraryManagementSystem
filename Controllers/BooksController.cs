@@ -1,3 +1,4 @@
+using Library.Core.Enums;
 using Library.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -5,7 +6,7 @@ namespace LibraryManagementSystem.Controllers;
 
 [ApiController]
 [Route("api/books")]
-public class BooksController : ControllerBase
+public class BooksController : ApiControllerBase
 {
     private readonly IBookService _bookService;
 
@@ -15,9 +16,13 @@ public class BooksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetBooks([FromQuery] string? query = null)
+    public async Task<IActionResult> GetBooks(
+        [FromQuery] string? query = null,
+        [FromQuery] string? category = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var books = await _bookService.GetBooksAsync(query);
+        var books = await _bookService.SearchBooksAsync(query, category, page, pageSize);
         return Ok(books);
     }
 
@@ -35,24 +40,49 @@ public class BooksController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateBook([FromBody] CreateBookRequest request)
+    public Task<IActionResult> CreateBook([FromBody] CreateBookRequest request)
     {
-        try
+        return ExecuteActionAsync(async () =>
         {
             var createdBook = await _bookService.AddBookAsync(
                 request.Title,
                 request.Isbn,
-                request.AuthorName);
+                request.AuthorName,
+                request.Category,
+                request.PublishedYear);
 
             return CreatedAtAction(
                 nameof(GetBookById),
                 new { id = createdBook.Id },
                 createdBook);
-        }
-        catch (ArgumentException exception)
+        });
+    }
+
+    [HttpPut("{id:int}")]
+    public Task<IActionResult> UpdateBook(int id, [FromBody] UpdateBookRequest request)
+    {
+        return ExecuteActionAsync(async () =>
         {
-            return BadRequest(new { error = exception.Message });
-        }
+            var updatedBook = await _bookService.UpdateBookAsync(
+                id,
+                request.Title,
+                request.Isbn,
+                request.AuthorName,
+                request.Category,
+                request.PublishedYear);
+
+            return Ok(updatedBook);
+        });
+    }
+
+    [HttpDelete("{id:int}")]
+    public Task<IActionResult> DeleteBook(int id)
+    {
+        return ExecuteActionAsync(async () =>
+        {
+            await _bookService.DeleteBookAsync(id);
+            return NoContent();
+        });
     }
 
     [HttpGet("copies")]
@@ -61,6 +91,69 @@ public class BooksController : ControllerBase
         var copies = await _bookService.GetBookCopiesAsync();
         return Ok(copies);
     }
+
+    [HttpGet("{id:int}/copies")]
+    public async Task<IActionResult> GetCopiesByBookId(int id)
+    {
+        var copies = await _bookService.GetCopiesByBookIdAsync(id);
+        return Ok(copies);
+    }
+
+    [HttpPost("{id:int}/copies")]
+    public Task<IActionResult> AddBookCopy(int id, [FromBody] CreateBookCopyRequest request)
+    {
+        return ExecuteActionAsync(async () =>
+        {
+            var createdCopy = await _bookService.AddBookCopyAsync(id, request.InventoryNumber);
+
+            return CreatedAtAction(
+                nameof(GetCopiesByBookId),
+                new { id = createdCopy.BookId },
+                createdCopy);
+        });
+    }
+
+    [HttpPut("copies/{copyId:int}")]
+    public Task<IActionResult> UpdateBookCopy(
+        int copyId,
+        [FromBody] UpdateBookCopyRequest request)
+    {
+        return ExecuteActionAsync(async () =>
+        {
+            var updatedCopy = await _bookService.UpdateBookCopyAsync(
+                copyId,
+                request.InventoryNumber,
+                request.Status);
+
+            return Ok(updatedCopy);
+        });
+    }
+
+    [HttpDelete("copies/{copyId:int}")]
+    public Task<IActionResult> DeleteBookCopy(int copyId)
+    {
+        return ExecuteActionAsync(async () =>
+        {
+            await _bookService.DeleteBookCopyAsync(copyId);
+            return NoContent();
+        });
+    }
 }
 
-public sealed record CreateBookRequest(string Title, string Isbn, string AuthorName);
+public sealed record CreateBookRequest(
+    string Title,
+    string Isbn,
+    string AuthorName,
+    string Category,
+    int PublishedYear);
+
+public sealed record UpdateBookRequest(
+    string Title,
+    string Isbn,
+    string AuthorName,
+    string Category,
+    int PublishedYear);
+
+public sealed record CreateBookCopyRequest(string InventoryNumber);
+
+public sealed record UpdateBookCopyRequest(string InventoryNumber, BookCopyStatus Status);

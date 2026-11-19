@@ -14,11 +14,18 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IAuthorRepository, InMemoryAuthorRepository>();
 builder.Services.AddSingleton<IBookCopyRepository, InMemoryBookCopyRepository>();
 builder.Services.AddSingleton<ILoanRepository, InMemoryLoanRepository>();
 builder.Services.AddSingleton<IBookRepository, InMemoryBookRepository>();
+builder.Services.AddSingleton<IReaderRepository, InMemoryReaderRepository>();
+builder.Services.AddSingleton<IReservationRepository, InMemoryReservationRepository>();
+builder.Services.AddSingleton<INotificationService, InMemoryNotificationService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+builder.Services.AddScoped<IReservationService, ReservationService>();
 
 var app = builder.Build();
 

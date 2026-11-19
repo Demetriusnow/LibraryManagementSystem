@@ -8,6 +8,7 @@ namespace Library.DAL.Repositories;
 public class InMemoryBookCopyRepository : IBookCopyRepository
 {
     private readonly ConcurrentDictionary<int, BookCopy> _bookCopies = new();
+    private int _nextCopyId = 2;
 
     public InMemoryBookCopyRepository()
     {
@@ -50,6 +51,44 @@ public class InMemoryBookCopyRepository : IBookCopyRepository
         return Task.FromResult(bookCopy);
     }
 
+    public Task<IReadOnlyCollection<BookCopy>> GetByBookIdAsync(
+        int bookId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        IReadOnlyCollection<BookCopy> copies = _bookCopies.Values
+            .Where(copy => copy.BookId == bookId)
+            .OrderBy(copy => copy.Id)
+            .ToArray();
+
+        return Task.FromResult(copies);
+    }
+
+    public Task<BookCopy?> GetByInventoryNumberAsync(
+        string inventoryNumber,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var copy = _bookCopies.Values.FirstOrDefault(item =>
+            string.Equals(item.InventoryNumber, inventoryNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(copy);
+    }
+
+    public Task AddAsync(
+        BookCopy bookCopy,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        bookCopy.Id = Interlocked.Increment(ref _nextCopyId);
+        _bookCopies.TryAdd(bookCopy.Id, bookCopy);
+
+        return Task.CompletedTask;
+    }
+
     public Task UpdateAsync(
         BookCopy bookCopy,
         CancellationToken cancellationToken = default)
@@ -61,6 +100,21 @@ public class InMemoryBookCopyRepository : IBookCopyRepository
         {
             throw new InvalidOperationException(
                 $"Book copy with ID {bookCopy.Id} was not found.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(
+        int bookCopyId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_bookCopies.TryRemove(bookCopyId, out _))
+        {
+            throw new InvalidOperationException(
+                $"Book copy with ID {bookCopyId} was not found.");
         }
 
         return Task.CompletedTask;

@@ -104,4 +104,52 @@ public class LoansControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(loans);
     }
+
+    [Fact]
+    public async Task GetOverdueLoans_ShouldReturnOkWithOverdueLoans()
+    {
+        // Arrange
+        IReadOnlyCollection<Loan> overdueLoans = new[]
+        {
+            new Loan { Id = 1, BookCopyId = 2, ReaderId = 1, Status = Library.Core.Enums.LoanStatus.Overdue }
+        };
+
+        var loanService = new Mock<ILoanService>();
+        loanService
+            .Setup(service => service.GetOverdueLoansAsync())
+            .ReturnsAsync(overdueLoans);
+
+        var controller = new LoansController(loanService.Object);
+
+        // Act
+        var result = await controller.GetOverdueLoans();
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(overdueLoans);
+    }
+
+    [Fact]
+    public async Task GetOverdueReaders_ShouldReturnOkWithOverdueReaders()
+    {
+        // Arrange
+        IReadOnlyCollection<Library.Core.DTOs.OverdueReaderDto> overdueReaders = new[]
+        {
+            new Library.Core.DTOs.OverdueReaderDto(1, "Ivan Petrenko", "ivan@example.com", Array.Empty<Loan>())
+        };
+
+        var loanService = new Mock<ILoanService>();
+        loanService
+            .Setup(service => service.GetOverdueReadersAsync())
+            .ReturnsAsync(overdueReaders);
+
+        var controller = new LoansController(loanService.Object);
+
+        // Act
+        var result = await controller.GetOverdueReaders();
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(overdueReaders);
+    }
 }

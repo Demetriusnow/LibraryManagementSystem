@@ -11,9 +11,9 @@ public class InMemoryLoanRepository : ILoanRepository
 
     public InMemoryLoanRepository()
     {
-        var borrowDate = DateTime.UtcNow.AddDays(-2);
+        var borrowDate = DateTime.UtcNow.AddDays(-16);
 
-        // Seed an active loan matching the initial borrowed book copy (Id = 2).
+        // Seed an active overdue loan matching the initial borrowed book copy (Id = 2).
         _loans.TryAdd(1, new Loan
         {
             Id = 1,
@@ -22,6 +22,18 @@ public class InMemoryLoanRepository : ILoanRepository
             BorrowDate = borrowDate,
             DueDate = borrowDate.AddDays(14)
         });
+    }
+
+    public Task<IReadOnlyCollection<Loan>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        IReadOnlyCollection<Loan> loans = _loans.Values
+            .OrderBy(loan => loan.Id)
+            .ToArray();
+
+        return Task.FromResult(loans);
     }
 
     public Task AddAsync(

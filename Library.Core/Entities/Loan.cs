@@ -1,3 +1,5 @@
+using Library.Core.Enums;
+
 namespace Library.Core.Entities;
 
 public class Loan
@@ -13,4 +15,6 @@ public class Loan
     public DateTime DueDate { get; set; }
 
     public DateTime? ReturnDate { get; set; }
+
+    public LoanStatus Status { get; set; } = LoanStatus.Active;
 }

@@ -1,15 +1,48 @@
 @LibraryManagementSystem_HostAddress = http://localhost:5107
 
-GET {{LibraryManagementSystem_HostAddress}}/api/books
+### 1. Search and filter books catalog (Story 3)
+GET {{LibraryManagementSystem_HostAddress}}/api/books?query=clean&category=Software&page=1&pageSize=10
 Accept: application/json
 
 ###
 
+### 2. List all book copies and statuses
 GET {{LibraryManagementSystem_HostAddress}}/api/books/copies
 Accept: application/json
 
 ###
 
+### 3. Add a new book (Story 1)
+POST {{LibraryManagementSystem_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "title": "Refactoring",
+  "isbn": "978-0134757599",
+  "authorName": "Martin Fowler",
+  "category": "Software Engineering",
+  "publishedYear": 2018
+}
+
+###
+
+### 4. Bind multiple physical copies to a book (Story 1)
+POST {{LibraryManagementSystem_HostAddress}}/api/books/1/copies
+Content-Type: application/json
+
+{
+  "inventoryNumber": "INV-003"
+}
+
+###
+
+### 5. CRUD Authors (Story 1)
+GET {{LibraryManagementSystem_HostAddress}}/api/authors
+Accept: application/json
+
+###
+
+### 6. Issue a loan (Story 4)
 POST {{LibraryManagementSystem_HostAddress}}/api/loans/issue
 Content-Type: application/json
 
@@ -20,11 +53,24 @@ Content-Type: application/json
 
 ###
 
-GET {{LibraryManagementSystem_HostAddress}}/api/loans/reader/1
+### 7. Reserve a currently borrowed book copy (Story 2)
+POST {{LibraryManagementSystem_HostAddress}}/api/reservations
+Content-Type: application/json
+
+{
+  "bookCopyId": 2,
+  "readerId": 2
+}
+
+###
+
+### 8. Check overdue readers (Story 2)
+GET {{LibraryManagementSystem_HostAddress}}/api/loans/overdue-readers
 Accept: application/json
 
 ###
 
+### 9. Return a loan (triggers 48h hold + notification if reserved) (Story 2 & 4)
 POST {{LibraryManagementSystem_HostAddress}}/api/loans/return
 Content-Type: application/json
 
@@ -34,13 +80,8 @@ Content-Type: application/json
 
 ###
 
-POST {{LibraryManagementSystem_HostAddress}}/api/books
-Content-Type: application/json
-
-{
-  "title": "Refactoring",
-  "isbn": "978-0134757599",
-  "authorName": "Martin Fowler"
-}
+### 10. View sent notifications (Story 2)
+GET {{LibraryManagementSystem_HostAddress}}/api/reservations/notifications
+Accept: application/json
 
 ###

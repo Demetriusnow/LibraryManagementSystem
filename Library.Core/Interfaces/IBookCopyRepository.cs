@@ -11,7 +11,23 @@ public interface IBookCopyRepository
         int bookCopyId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<BookCopy>> GetByBookIdAsync(
+        int bookId,
+        CancellationToken cancellationToken = default);
+
+    Task<BookCopy?> GetByInventoryNumberAsync(
+        string inventoryNumber,
+        CancellationToken cancellationToken = default);
+
+    Task AddAsync(
+        BookCopy bookCopy,
+        CancellationToken cancellationToken = default);
+
     Task UpdateAsync(
         BookCopy bookCopy,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(
+        int bookCopyId,
         CancellationToken cancellationToken = default);
 }
