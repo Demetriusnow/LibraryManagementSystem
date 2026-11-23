@@ -27,8 +27,11 @@ public class AuthorsControllerTests
         var result = await controller.GetAuthors();
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeEquivalentTo(authors);
+        //var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        //okResult.Value.Should().BeEquivalentTo(authors);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(authors, okResult.Value);
+
     }
 
     [Fact]
