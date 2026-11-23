@@ -1,0 +1,108 @@
+GET /api/authors
+
+GET /api/authors/1
+
+POST /api/authors
+{
+  "name": "Kent Beck"
+}
+
+PUT /api/authors/3
+{
+  "name": "Kent Beck Updated"
+}
+
+DELETE /api/authors/3
+
+GET /api/books?query=clean&category=Software&page=1&pageSize=10
+
+GET /api/books?query=abracadabra
+
+GET /api/books/1
+
+POST /api/books
+{
+  "title": "Refactoring",
+  "isbn": "978-0134757599",
+  "authorName": "Martin Fowler",
+  "category": "Software Engineering",
+  "publishedYear": 2018
+}
+
+POST /api/books
+{
+  "title": "Future Book",
+  "isbn": "978-0000000099",
+  "authorName": "Test Author",
+  "category": "Sci-Fi",
+  "publishedYear": 2099
+}
+
+PUT /api/books/1
+{
+  "title": "Clean Architecture",
+  "isbn": "978-0134494166",
+  "authorName": "Robert C. Martin",
+  "category": "Software Engineering",
+  "publishedYear": 2017
+}
+
+DELETE /api/books/3
+
+GET /api/books/copies
+
+GET /api/books/1/copies
+
+POST /api/books/1/copies
+{
+  "inventoryNumber": "INV-003"
+}
+
+PUT /api/books/copies/3
+{
+  "inventoryNumber": "INV-003",
+  "status": "Available"
+}
+
+DELETE /api/books/copies/3
+
+GET /api/loans/overdue
+
+GET /api/loans/overdue-readers
+
+POST /api/reservations
+{
+  "bookCopyId": 2,
+  "readerId": 2
+}
+
+GET /api/reservations/book-copy/2
+
+POST /api/loans/return
+{
+  "loanId": 1
+}
+
+GET /api/reservations/notifications
+
+POST /api/loans/issue
+{
+  "bookCopyId": 2,
+  "readerId": 99
+}
+
+POST /api/loans/issue
+{
+  "bookCopyId": 2,
+  "readerId": 2
+}
+
+POST /api/loans/issue
+{
+  "bookCopyId": 1,
+  "readerId": 1
+}
+
+GET /api/loans/reader/2
+
+DELETE /api/reservations/1
